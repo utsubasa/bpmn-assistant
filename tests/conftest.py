@@ -612,3 +612,34 @@ def bpmn_xml_inclusive_next():
 def bpmn_xml_parallel_gateway_no_join():
     """BPMN XML with a parallel gateway missing a matching join gateway."""
     return load_bpmn("parallel_gateway_no_join.bpmn")
+
+
+@pytest.fixture
+def lanes_definition():
+    """Lane definitions for testing."""
+    return [
+        {"id": "lane1", "name": "Sales"},
+        {"id": "lane2", "name": "Accounting"},
+    ]
+
+
+@pytest.fixture
+def process_with_lanes():
+    """A process with lane assignments."""
+    return [
+        {"type": "startEvent", "id": "start", "lane": "lane1"},
+        {"type": "receiveTask", "id": "task1", "label": "Receive request", "lane": "lane1"},
+        {"type": "userTask", "id": "task2", "label": "Create quote", "lane": "lane1"},
+        {"type": "userTask", "id": "task3", "label": "Review quote", "lane": "lane2"},
+        {"type": "endEvent", "id": "end", "lane": "lane2"},
+    ]
+
+
+@pytest.fixture
+def process_with_invalid_lane():
+    """A process with a lane reference to a non-existent lane."""
+    return [
+        {"type": "startEvent", "id": "start", "lane": "lane1"},
+        {"type": "task", "id": "task1", "label": "Do something", "lane": "invalid_lane"},
+        {"type": "endEvent", "id": "end", "lane": "lane1"},
+    ]

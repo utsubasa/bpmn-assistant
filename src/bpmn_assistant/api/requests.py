@@ -23,6 +23,7 @@ class DetermineIntentRequest(BaseModel):
 class ModifyBpmnRequest(BaseModel):
     message_history: list[MessageItem]  # The message history
     process: list[dict[str, Any]] | None  # The process to be updated (if it exists)
+    lanes: list[dict[str, Any]] | None = None  # Lane definitions (if they exist)
     model: str  # The model to be used
     api_keys: dict[str, str] | None = None  # Optional API keys from user
 

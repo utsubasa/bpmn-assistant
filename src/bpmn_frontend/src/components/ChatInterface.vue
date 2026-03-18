@@ -28,25 +28,38 @@
             </template>
           </v-tooltip>
 
-          <v-tooltip
-            text="Download BPMN"
-            v-if="isDownloadReady"
-            location="bottom"
-          >
-            <template v-slot:activator="{ props }">
-              <v-btn
-                v-bind="props"
-                @click="onDownload"
-                :disabled="isLoading"
-                icon="mdi-download"
-                variant="text"
-                size="medium"
-                color="orange"
-                class="mr-5"
-              >
-              </v-btn>
+          <v-menu v-if="isDownloadReady" location="bottom">
+            <template v-slot:activator="{ props: menuProps }">
+              <v-tooltip text="Download" location="bottom">
+                <template v-slot:activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-bind="{ ...menuProps, ...tooltipProps }"
+                    :disabled="isLoading"
+                    icon="mdi-download"
+                    variant="text"
+                    size="medium"
+                    color="orange"
+                    class="mr-5"
+                  >
+                  </v-btn>
+                </template>
+              </v-tooltip>
             </template>
-          </v-tooltip>
+            <v-list density="compact">
+              <v-list-item @click="onDownload('bpmn')">
+                <v-list-item-title>BPMN (.bpmn)</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="onDownload('svg')">
+                <v-list-item-title>SVG (.svg)</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="onDownload('png')">
+                <v-list-item-title>PNG (.png)</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="onDownload('pdf')">
+                <v-list-item-title>PDF (.pdf)</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
           <v-tooltip text="API Keys" location="bottom" v-if="isHostedVersion">
             <template v-slot:activator="{ props }">
               <v-btn
@@ -141,15 +154,15 @@
             type="file"
             ref="fileInput"
             @change="handleFileSelect"
-            accept="image/*"
+            accept="image/*,.pdf"
             multiple
             style="display: none"
           />
           <v-tooltip
             :text="
               !isOpenAIModel
-                ? 'Image uploads are only available for OpenAI models'
-                : 'Upload image'
+                ? 'Image uploads are only available for OpenAI models (PDF upload available for all models)'
+                : 'Upload image or PDF'
             "
             location="top"
           >
@@ -157,8 +170,8 @@
               <v-btn
                 v-bind="props"
                 @click="triggerFileInput"
-                :disabled="isLoading || !isOpenAIModel"
-                icon="mdi-image-plus"
+                :disabled="isLoading"
+                icon="mdi-paperclip"
                 variant="text"
                 size="small"
                 class="attach-button"
@@ -245,9 +258,11 @@ export default {
   props: {
     onBpmnXmlReceived: Function,
     onBpmnJsonReceived: Function,
+    onLanesReceived: Function,
     onDownload: Function,
     isDownloadReady: Boolean,
     process: Object,
+    lanes: Object,
   },
   data() {
     return {
@@ -286,6 +301,7 @@ export default {
       this.selectedImages = [];
       this.conversationHasImages = false;
       this.onBpmnJsonReceived(null);
+      this.onLanesReceived(null);
       this.onBpmnXmlReceived('');
     },
     setSelectedModel(model) {
@@ -376,11 +392,14 @@ export default {
           this.$nextTick(() => {
             this.scrollToBottom();
           });
-          const { bpmnXml, bpmnJson } = await this.modify(
+          const modifyResult = await this.modify(
             this.process,
             this.selectedModel
           );
+          if (!modifyResult) break;
+          const { bpmnXml, bpmnJson, lanes: newLanes } = modifyResult;
           this.onBpmnJsonReceived(bpmnJson);
+          this.onLanesReceived(newLanes);
           this.onBpmnXmlReceived(bpmnXml);
           await this.talk(bpmnJson, this.selectedModel, true); // Make final comment
           this.$nextTick(() => {
@@ -634,6 +653,7 @@ export default {
         const payload = {
           message_history: toRaw(this.messages),
           process: process,
+          lanes: this.lanes || null,
           model: selectedModel,
           api_keys: apiKeys,
         };
@@ -658,6 +678,7 @@ export default {
         return {
           bpmnXml: data.bpmn_xml,
           bpmnJson: data.bpmn_json,
+          lanes: data.lanes || null,
         };
       } catch (error) {
         console.error('Error modifying BPMN:', error);
@@ -674,9 +695,15 @@ export default {
       this.processFiles(files);
     },
     processFiles(files) {
+      const pdfFiles = files.filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
       const imageFiles = files.filter((file) =>
         file.type.startsWith('image/')
       );
+
+      // Handle PDF files
+      for (const pdfFile of pdfFiles) {
+        this.processPdf(pdfFile);
+      }
 
       // Limit to max 3 images
       const remainingSlots = 3 - this.selectedImages.length;
@@ -698,6 +725,45 @@ export default {
         };
         reader.readAsDataURL(file);
       });
+    },
+    async processPdf(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch(`${bpmnAssistantUrl}/upload_pdf`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`PDF upload failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Append the extracted text to the current input
+        const pdfText = data.text || '';
+        if (pdfText) {
+          const prefix = this.currentInput ? this.currentInput + '\n\n' : '';
+          this.currentInput = prefix + `[PDF: ${file.name}]\n${pdfText}`;
+        }
+
+        // Add page images as attachments (limited to remaining slots)
+        if (data.images && data.images.length > 0) {
+          const remainingSlots = 3 - this.selectedImages.length;
+          const imagesToAdd = data.images.slice(0, remainingSlots);
+          imagesToAdd.forEach((imgDataUrl, index) => {
+            this.selectedImages.push({
+              preview: imgDataUrl,
+              name: `${file.name}_page${index + 1}.png`,
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error processing PDF:', error);
+        this.setError(`Failed to process PDF: ${error.message}`);
+      }
     },
     removeImage(index) {
       this.selectedImages.splice(index, 1);

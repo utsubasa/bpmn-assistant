@@ -138,3 +138,38 @@ A converging element is automatically generated to synchronize parallel branches
     ],
 }
 ```
+
+## Lanes
+
+Lanes are used to organize elements by role, department, or actor. Use lanes ONLY when the process description explicitly mentions multiple distinct actors or departments performing different tasks. If all tasks are performed by a single actor or no actors are mentioned, do NOT use lanes.
+
+When using lanes, add a top-level "lanes" array alongside the "process" array. Each element that belongs to a lane should have a "lane" field referencing the lane ID.
+
+```json
+{
+    "lanes": [
+        {"id": String, "name": String}, // e.g. {"id": "lane1", "name": "Sales Department"}
+        {"id": String, "name": String}, // e.g. {"id": "lane2", "name": "Accounting Department"}
+    ],
+    "process": [
+        {
+            "type": "startEvent",
+            "id": "start",
+            "lane": "lane1", // assign to the lane where the process begins
+        },
+        {
+            "type": "userTask",
+            "id": "task1",
+            "label": "Create quote",
+            "lane": "lane1", // this task is performed by Sales Department
+        },
+        // ... more elements with lane assignments
+    ]
+}
+```
+
+Rules for lanes:
+- Every element in the process MUST have a "lane" field when lanes are used
+- Lane IDs referenced in elements must match an ID in the "lanes" array
+- Gateway elements should be assigned to the lane of the actor who makes the decision
+- Start and end events should be assigned to the lane where they logically occur

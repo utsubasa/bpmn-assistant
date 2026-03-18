@@ -14,6 +14,8 @@ class BpmnJsonGenerator:
         self.elements: dict[str, dict[str, Any]] = {}
         self.flows: dict[str, dict[str, Any]] = {}
         self.process: list[dict[str, Any]] = []
+        self.lanes: list[dict[str, Any]] = []
+        self.lane_map: dict[str, str] = {}  # element_id -> lane_id
 
     def _find_process_element(self, root: ET.Element) -> ET.Element:
         for elem in root.iter():
@@ -21,18 +23,15 @@ class BpmnJsonGenerator:
                 return elem
         raise ValueError("No process element found in the BPMN XML")
 
-    def create_bpmn_json(self, bpmn_xml: str) -> list[dict[str, Any]]:
+    def create_bpmn_json(self, bpmn_xml: str) -> dict[str, Any]:
         """
-        Create the JSON representation of the process from the BPMN XML
-        Constraints:
-            - Supported elements: task, userTask, serviceTask, sendTask, receiveTask, businessRuleTask, manualTask, scriptTask, startEvent, endEvent, intermediateThrowEvent, intermediateCatchEvent, exclusiveGateway, inclusiveGateway, parallelGateway
-            - Supported event definitions: timerEventDefinition, messageEventDefinition
-            - The process must have only one start event
-            - The process must not contain pools or lanes
-            - Parallel gateways must have a corresponding join gateway
+        Create the JSON representation of the process from the BPMN XML.
+        Returns:
+            dict with "process" (list) and optionally "lanes" (list).
         """
         root = ET.fromstring(bpmn_xml)
         process_element = self._find_process_element(root)
+        self._parse_lanes(process_element)
         self._get_elements_and_flows(process_element)
         start_events = [
             elem
@@ -42,7 +41,46 @@ class BpmnJsonGenerator:
         if len(start_events) != 1:
             raise ValueError("Process must contain exactly one start event")
         self._build_process_structure()
-        return self.process
+
+        # Apply lane assignments to process elements
+        if self.lane_map:
+            self._apply_lanes_to_process(self.process)
+
+        result: dict[str, Any] = {"process": self.process}
+        if self.lanes:
+            result["lanes"] = self.lanes
+        return result
+
+    def _parse_lanes(self, process_element: ET.Element) -> None:
+        """Parse laneSet from the process element and build lane_map."""
+        for child in process_element:
+            tag = child.tag.split("}")[-1]
+            if tag == "laneSet":
+                for lane_elem in child:
+                    lane_tag = lane_elem.tag.split("}")[-1]
+                    if lane_tag == "lane":
+                        lane_id = lane_elem.get("id", "")
+                        lane_name = lane_elem.get("name", "")
+                        self.lanes.append({"id": lane_id, "name": lane_name})
+                        for ref_elem in lane_elem:
+                            ref_tag = ref_elem.tag.split("}")[-1]
+                            if ref_tag == "flowNodeRef" and ref_elem.text:
+                                self.lane_map[ref_elem.text] = lane_id
+
+    def _apply_lanes_to_process(self, elements: list[dict[str, Any]]) -> None:
+        """Recursively apply lane assignments to process elements."""
+        for element in elements:
+            if element["id"] in self.lane_map:
+                element["lane"] = self.lane_map[element["id"]]
+            if element.get("type") in [
+                BPMNElementType.EXCLUSIVE_GATEWAY.value,
+                BPMNElementType.INCLUSIVE_GATEWAY.value,
+            ]:
+                for branch in element.get("branches", []):
+                    self._apply_lanes_to_process(branch.get("path", []))
+            elif element.get("type") == BPMNElementType.PARALLEL_GATEWAY.value:
+                for branch in element.get("branches", []):
+                    self._apply_lanes_to_process(branch)
 
     def _build_process_structure(self):
         start_event = next(
