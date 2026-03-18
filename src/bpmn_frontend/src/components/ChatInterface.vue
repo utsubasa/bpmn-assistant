@@ -242,6 +242,7 @@ import Intent from '../enums/Intent';
 import { bpmnAssistantUrl, isHostedVersion } from '../config';
 import { getApiKeys } from '../utils/apiKeys';
 
+const MAX_IMAGES = 3;
 const STREAM_IDLE_TIMEOUT_MS = 10000;
 const STREAM_TOTAL_TIMEOUT_MS = 30000;
 const FINAL_RESPONSE_FALLBACK_MESSAGE =
@@ -706,7 +707,7 @@ export default {
       }
 
       // Limit to max 3 images
-      const remainingSlots = 3 - this.selectedImages.length;
+      const remainingSlots = MAX_IMAGES - this.selectedImages.length;
 
       if (imageFiles.length > remainingSlots) {
         this.showImageLimitSnackbar = true;
@@ -751,7 +752,7 @@ export default {
 
         // Add page images as attachments (limited to remaining slots)
         if (data.images && data.images.length > 0) {
-          const remainingSlots = 3 - this.selectedImages.length;
+          const remainingSlots = MAX_IMAGES - this.selectedImages.length;
           const imagesToAdd = data.images.slice(0, remainingSlots);
           imagesToAdd.forEach((imgDataUrl, index) => {
             this.selectedImages.push({

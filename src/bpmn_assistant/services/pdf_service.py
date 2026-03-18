@@ -3,6 +3,8 @@ import io
 
 import pdfplumber
 
+PDF_IMAGE_RESOLUTION = 150
+
 
 def extract_pdf_content(pdf_bytes: bytes) -> dict:
     """
@@ -26,7 +28,7 @@ def extract_pdf_content(pdf_bytes: bytes) -> dict:
                 text_parts.append(page_text)
 
             # Render page as image for vision-capable LLMs
-            page_image = page.to_image(resolution=150)
+            page_image = page.to_image(resolution=PDF_IMAGE_RESOLUTION)
             img_buffer = io.BytesIO()
             page_image.save(img_buffer, format="PNG")
             img_buffer.seek(0)

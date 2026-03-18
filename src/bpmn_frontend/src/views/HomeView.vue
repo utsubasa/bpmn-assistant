@@ -33,6 +33,8 @@ import 'bpmn-js/dist/assets/diagram-js.css';
 import 'bpmn-js/dist/assets/bpmn-js.css';
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
 
+const EXPORT_SCALE_FACTOR = 2;
+
 export default {
   name: 'App',
   components: {
@@ -235,8 +237,8 @@ export default {
 
       return new Promise((resolve) => {
         img.onload = () => {
-          canvas.width = img.width * 2;
-          canvas.height = img.height * 2;
+          canvas.width = img.width * EXPORT_SCALE_FACTOR;
+          canvas.height = img.height * EXPORT_SCALE_FACTOR;
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -264,8 +266,8 @@ export default {
 
       return new Promise((resolve) => {
         img.onload = async () => {
-          canvas.width = img.width * 2;
-          canvas.height = img.height * 2;
+          canvas.width = img.width * EXPORT_SCALE_FACTOR;
+          canvas.height = img.height * EXPORT_SCALE_FACTOR;
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);

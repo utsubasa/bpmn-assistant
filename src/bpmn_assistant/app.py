@@ -35,6 +35,9 @@ ALLOWED_ORIGINS = [
     "https://bpmn-frontend.onrender.com",
 ]
 
+# File upload constraints
+PDF_MAX_SIZE = 10 * 1024 * 1024  # 10 MB limit
+
 
 app = FastAPI()
 
@@ -134,6 +137,15 @@ async def _upload_pdf(file: UploadFile = File(...)) -> JSONResponse:
         return JSONResponse(
             status_code=400,
             content={"detail": "Only PDF files are accepted."},
+        )
+
+    # Check file size limit to prevent DoS attacks
+    if file.size is not None and file.size > PDF_MAX_SIZE:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "detail": f"File size exceeds maximum allowed size of {PDF_MAX_SIZE // (1024 * 1024)} MB."
+            },
         )
 
     pdf_bytes = await file.read()
