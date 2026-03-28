@@ -4,9 +4,11 @@
       <ChatInterface
         @bpmn-xml-received="handleBpmnXml"
         @bpmn-json-received="setBpmnJson"
-        @download="downloadBpmnFile"
+        @lanes-received="setLanes"
+        @download="handleDownload"
         :isDownloadReady="!!bpmnXml"
         :process="process"
+        :lanes="lanes"
       />
     </div>
     <div
@@ -31,6 +33,8 @@ import 'bpmn-js/dist/assets/diagram-js.css';
 import 'bpmn-js/dist/assets/bpmn-js.css';
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css';
 
+const EXPORT_SCALE_FACTOR = 2;
+
 export default {
   name: 'App',
   components: {
@@ -40,6 +44,7 @@ export default {
     return {
       bpmnXml: '',
       process: null, // Process in JSON format
+      lanes: null, // Lane definitions
       bpmnViewer: null,
       snackbar: {
         show: false,
@@ -115,7 +120,9 @@ export default {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        this.process = await response.json();
+        const data = await response.json();
+        this.process = data.process;
+        this.lanes = data.lanes || null;
         console.log('BPMN JSON created successfully:', this.process);
         this.showSnackbar('BPMN successfully uploaded', 'success');
       } catch (error) {
@@ -184,6 +191,24 @@ export default {
         console.error('Failed to process the diagram:', error);
       }
     },
+    async handleDownload(format) {
+      switch (format) {
+        case 'bpmn':
+          await this.downloadBpmnFile();
+          break;
+        case 'svg':
+          await this.downloadSvg();
+          break;
+        case 'png':
+          await this.downloadPng();
+          break;
+        case 'pdf':
+          await this.downloadPdf();
+          break;
+        default:
+          await this.downloadBpmnFile();
+      }
+    },
     async downloadBpmnFile() {
       const { xml } = await this.bpmnViewer.saveXML();
       const blob = new Blob([xml], { type: 'text/xml' });
@@ -192,9 +217,85 @@ export default {
       a.href = url;
       a.download = 'diagram.bpmn';
       a.click();
+      window.URL.revokeObjectURL(url);
+    },
+    async downloadSvg() {
+      const { svg } = await this.bpmnViewer.saveSVG();
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'diagram.svg';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    },
+    async downloadPng() {
+      const { svg } = await this.bpmnViewer.saveSVG();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      return new Promise((resolve) => {
+        img.onload = () => {
+          canvas.width = img.width * EXPORT_SCALE_FACTOR;
+          canvas.height = img.height * EXPORT_SCALE_FACTOR;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          canvas.toBlob((blob) => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.png';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            resolve();
+          }, 'image/png');
+        };
+
+        const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        img.src = URL.createObjectURL(svgBlob);
+      });
+    },
+    async downloadPdf() {
+      const { svg } = await this.bpmnViewer.saveSVG();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      return new Promise((resolve) => {
+        img.onload = async () => {
+          canvas.width = img.width * EXPORT_SCALE_FACTOR;
+          canvas.height = img.height * EXPORT_SCALE_FACTOR;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const pngDataUrl = canvas.toDataURL('image/png');
+          const { jsPDF } = await import('jspdf');
+
+          const isLandscape = canvas.width > canvas.height;
+          const pdf = new jsPDF({
+            orientation: isLandscape ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [canvas.width, canvas.height],
+          });
+
+          pdf.addImage(pngDataUrl, 'PNG', 0, 0, canvas.width, canvas.height);
+          pdf.save('diagram.pdf');
+          resolve();
+        };
+
+        const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        img.src = URL.createObjectURL(svgBlob);
+      });
     },
     setBpmnJson(value) {
       this.process = value;
+    },
+    setLanes(value) {
+      this.lanes = value;
     },
   },
 };

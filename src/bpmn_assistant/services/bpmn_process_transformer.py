@@ -232,6 +232,10 @@ class BpmnProcessTransformer:
             if "eventDefinition" in element:
                 transformed_element["eventDefinition"] = element["eventDefinition"]
 
+            # Preserve lane if present
+            if "lane" in element:
+                transformed_element["lane"] = element["lane"]
+
             elements.append(transformed_element)
 
             if element["type"] == "exclusiveGateway":

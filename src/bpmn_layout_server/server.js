@@ -1,6 +1,9 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const { layoutProcess } = require('bpmn-auto-layout');
+const { DOMParser } = require('@xmldom/xmldom');
+const { hasLanes } = require('./xml-utils');
+const { layoutWithLanes } = require('./lane-layout');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -23,7 +26,15 @@ app.post('/process-bpmn', async (req, res) => {
   const { bpmnXml } = req.body;
 
   try {
-    const layoutedXml = await layoutProcess(bpmnXml);
+    const doc = new DOMParser().parseFromString(bpmnXml, 'text/xml');
+    let layoutedXml;
+
+    if (hasLanes(doc)) {
+      layoutedXml = await layoutWithLanes(bpmnXml);
+    } else {
+      layoutedXml = await layoutProcess(bpmnXml);
+    }
+
     res.json({ layoutedXml });
   } catch (error) {
     console.error('Error processing BPMN XML:', error);

@@ -28,7 +28,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_0htbpx6"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_exclusive_gateway(self, bpmn_xml_exclusive_gateway):
 
@@ -69,7 +69,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_0pht86l"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_exclusive_gateway_join(
         self, bpmn_xml_exclusive_gateway_join
@@ -112,7 +112,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_0pht86l"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_nested_exclusive_gateway(
         self, bpmn_xml_nested_exclusive_gateway
@@ -183,7 +183,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_13rn7yc"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_parallel_gateway(self, bpmn_xml_parallel_gateway):
 
@@ -216,7 +216,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_13alrua"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_parallel_gateway_without_join(
         self, bpmn_xml_parallel_gateway_no_join
@@ -282,7 +282,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_09mvj7a"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_inside_pg(self, bpmn_xml_eg_inside_pg):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -337,7 +337,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_1nctra5"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_next(self, bpmn_xml_eg_next):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -378,7 +378,7 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_next_2(self, bpmn_xml_eg_next_2):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -429,7 +429,7 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_next_3(self, bpmn_xml_eg_next_3):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -495,7 +495,7 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_next_4(self, bpmn_xml_eg_next_4):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -564,7 +564,7 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_next_5(self, bpmn_xml_eg_next_5):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -632,7 +632,7 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_next_6(self, bpmn_xml_eg_next_6):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -701,7 +701,7 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_eg_empty_path(self, bpmn_xml_eg_empty_path):
 
@@ -733,7 +733,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "Event_02kplnj"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_labeled_events(self, bpmn_xml_labeled_events):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -758,7 +758,7 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_multiple_start_events(self, bpmn_xml_two_start_events):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -815,7 +815,7 @@ class TestBpmnJsonGenerator:
             {"type": "endEvent", "id": "end"},
         ]
 
-        assert result == expected
+        assert result["process"] == expected
 
     def test_create_bpmn_json_inclusive_gateway_next(self, bpmn_xml_inclusive_next):
         bpmn_json_generator = BpmnJsonGenerator()
@@ -858,4 +858,4 @@ class TestBpmnJsonGenerator:
             },
         ]
 
-        assert result == expected
+        assert result["process"] == expected

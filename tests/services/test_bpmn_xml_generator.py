@@ -87,3 +87,49 @@ class TestBpmnXmlGenerator:
         result_tree = ET.ElementTree(ET.fromstring(result))
         expected_tree = ET.ElementTree(ET.fromstring(expected_xml))
         assert elements_equal(result_tree.getroot(), expected_tree.getroot())
+
+    def test_create_bpmn_xml_with_lanes(self, process_with_lanes, lanes_definition):
+        xml_generator = BpmnXmlGenerator()
+        result = xml_generator.create_bpmn_xml(process_with_lanes, lanes=lanes_definition)
+
+        # Parse and verify the XML contains laneSet
+        root = ET.fromstring(result)
+        process_el = None
+        for elem in root.iter():
+            if elem.tag.endswith("process"):
+                process_el = elem
+                break
+        assert process_el is not None
+
+        # Find laneSet
+        lane_set = None
+        for child in process_el:
+            if child.tag.endswith("laneSet"):
+                lane_set = child
+                break
+        assert lane_set is not None
+
+        # Verify lanes exist
+        lane_elements = [child for child in lane_set if child.tag.endswith("lane")]
+        assert len(lane_elements) == 2
+
+        # Verify lane names
+        lane_names = {lane.get("name") for lane in lane_elements}
+        assert lane_names == {"Sales", "Accounting"}
+
+        # Verify flowNodeRefs exist
+        for lane_el in lane_elements:
+            refs = [ref.text for ref in lane_el if ref.tag.endswith("flowNodeRef")]
+            assert len(refs) > 0
+
+    def test_create_bpmn_xml_without_lanes_unchanged(self, linear_process):
+        """XML generation without lanes should produce the same result as before."""
+        xml_generator = BpmnXmlGenerator()
+        result_no_lanes = xml_generator.create_bpmn_xml(linear_process)
+        result_explicit_none = xml_generator.create_bpmn_xml(linear_process, lanes=None)
+        assert result_no_lanes == result_explicit_none
+
+        # Verify no laneSet in output
+        root = ET.fromstring(result_no_lanes)
+        for elem in root.iter():
+            assert not elem.tag.endswith("laneSet")

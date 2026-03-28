@@ -27,7 +27,7 @@ class BpmnModelingService:
         message_history: list[MessageItem],
         images: list[MessageImage] | None = None,
         max_retries: int = 3,
-    ) -> list:
+    ) -> dict:
         """
         Create a BPMN process.
         Args:
@@ -36,7 +36,7 @@ class BpmnModelingService:
             images: Optional list of images to attach to the request.
             max_retries: The maximum number of retries in case of failure.
         Returns:
-            list: The BPMN process.
+            dict: {"process": list, "lanes": list | None}
         """
 
         prompt = self.prompt_processor.render_template(
@@ -50,14 +50,15 @@ class BpmnModelingService:
         while attempts < max_retries:
             attempts += 1
             try:
-                response = llm_facade.call(prompt, max_tokens=3000, images=images)
+                response = llm_facade.call(prompt, max_tokens=4000, images=images)
                 logger.debug(f"LLM response:\n{json.dumps(response, indent=2)}")
                 process = response["process"]
-                validate_bpmn(process)
+                lanes = response.get("lanes", None)
+                validate_bpmn(process, lanes=lanes)
                 logger.debug(
                     f"Generated BPMN process:\n{json.dumps(process, indent=2)}"
                 )
-                return process  # Return the process if it's valid
+                return {"process": process, "lanes": lanes}
             except (ValueError, Exception) as e:
                 last_error = e
                 logger.warning(

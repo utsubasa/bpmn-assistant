@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 
@@ -18,6 +18,7 @@ from bpmn_assistant.services import (
     ConversationalService,
     determine_intent,
 )
+from bpmn_assistant.services.pdf_service import extract_pdf_content
 from bpmn_assistant.utils import (
     extract_images_from_message_history,
     get_available_providers,
@@ -33,6 +34,9 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:8080",
     "https://bpmn-frontend.onrender.com",
 ]
+
+# File upload constraints
+PDF_MAX_SIZE = 10 * 1024 * 1024  # 10 MB limit
 
 
 app = FastAPI()
@@ -62,7 +66,7 @@ async def _bpmn_to_json(request: BpmnToJsonRequest) -> JSONResponse:
     """
     bpmn_json_generator = BpmnJsonGenerator()
     result = bpmn_json_generator.create_bpmn_json(request.bpmn_xml)
-    return JSONResponse(content=result)
+    return JSONResponse(content=result)  # Returns {"process": [...], "lanes": [...] | absent}
 
 
 @app.post("/available_providers")
@@ -100,6 +104,8 @@ async def _modify(request: ModifyBpmnRequest) -> JSONResponse:
     )
     images = extract_images_from_message_history(request.message_history)
 
+    lanes = request.lanes
+
     if request.process:
         process = bpmn_modeling_service.edit_bpmn(
             llm_facade,
@@ -109,14 +115,42 @@ async def _modify(request: ModifyBpmnRequest) -> JSONResponse:
             images=images,
         )
     else:
-        process = bpmn_modeling_service.create_bpmn(
+        result = bpmn_modeling_service.create_bpmn(
             llm_facade,
             request.message_history,
             images=images,
         )
+        process = result["process"]
+        lanes = result.get("lanes")
 
-    bpmn_xml_string = bpmn_xml_generator.create_bpmn_xml(process)
-    return JSONResponse(content={"bpmn_xml": bpmn_xml_string, "bpmn_json": process})
+    bpmn_xml_string = bpmn_xml_generator.create_bpmn_xml(process, lanes=lanes)
+    return JSONResponse(content={"bpmn_xml": bpmn_xml_string, "bpmn_json": process, "lanes": lanes})
+
+
+@app.post("/upload_pdf")
+@handle_exceptions
+async def _upload_pdf(file: UploadFile = File(...)) -> JSONResponse:
+    """
+    Upload a PDF file and extract text + page images for use in BPMN generation.
+    """
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Only PDF files are accepted."},
+        )
+
+    # Check file size limit to prevent DoS attacks
+    if file.size is not None and file.size > PDF_MAX_SIZE:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "detail": f"File size exceeds maximum allowed size of {PDF_MAX_SIZE // (1024 * 1024)} MB."
+            },
+        )
+
+    pdf_bytes = await file.read()
+    result = extract_pdf_content(pdf_bytes)
+    return JSONResponse(content=result)
 
 
 @app.post("/talk")

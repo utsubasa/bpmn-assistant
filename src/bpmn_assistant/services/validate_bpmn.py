@@ -5,12 +5,13 @@ from bpmn_assistant.core.schemas import BPMNTask, ExclusiveGateway, InclusiveGat
 from bpmn_assistant.services.bpmn_process_transformer import BpmnProcessTransformer
 
 
-def validate_bpmn(process: list, is_top_level: bool = True) -> None:
+def validate_bpmn(process: list, is_top_level: bool = True, lanes: list | None = None) -> None:
     """
     Validate the BPMN process.
     Args:
         process: The BPMN process in JSON format.
         is_top_level: Whether this is the top-level process (not a branch).
+        lanes: Optional list of lane definitions (only at top level).
     Raises:
         ValueError: If the BPMN process, or any of its elements, is invalid.
     """
@@ -47,6 +48,11 @@ def validate_bpmn(process: list, is_top_level: bool = True) -> None:
         # Ensure the process can be transformed into BPMN XML
         transformer = BpmnProcessTransformer()
         transformer.transform(process)
+
+    # Validate lane references if lanes are provided
+    if is_top_level and lanes:
+        lane_ids = {lane["id"] for lane in lanes}
+        _validate_lane_references(process, lane_ids)
 
 
 def validate_element(element: dict) -> None:
@@ -158,6 +164,26 @@ def _validate_parallel_gateway(element: dict) -> None:
         ParallelGateway.model_validate(element)
     except ValidationError:
         raise ValueError(f"Invalid parallel gateway element: {element}")
+
+def _validate_lane_references(process: list[dict], lane_ids: set[str]) -> None:
+    """Validate that all lane references in the process point to valid lane IDs."""
+    for element in process:
+        lane_ref = element.get("lane")
+        if lane_ref and lane_ref not in lane_ids:
+            raise ValueError(
+                f"Element '{element['id']}' references unknown lane '{lane_ref}'. "
+                f"Valid lanes: {lane_ids}"
+            )
+        if element["type"] in [
+            BPMNElementType.EXCLUSIVE_GATEWAY.value,
+            BPMNElementType.INCLUSIVE_GATEWAY.value,
+        ]:
+            for branch in element.get("branches", []):
+                _validate_lane_references(branch["path"], lane_ids)
+        if element["type"] == BPMNElementType.PARALLEL_GATEWAY.value:
+            for branch in element.get("branches", []):
+                _validate_lane_references(branch, lane_ids)
+
 
 def _process_has_end_event(process: list[dict]) -> bool:
     """Recursively check whether a process (including branches) contains at least one end event."""

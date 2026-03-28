@@ -26,6 +26,15 @@ class MessageItem(BaseModel):
     images: Optional[List[MessageImage]] = None
 
 
+class BPMNLane(BaseModel):
+    """
+    Represents a BPMN lane (a partition within a process used to organize elements by role/department).
+    """
+
+    id: str
+    name: str
+
+
 class BPMNTask(BaseModel):
     """
     Represents a BPMN task.
@@ -35,6 +44,7 @@ class BPMNTask(BaseModel):
     type: TaskType
     id: str
     label: str
+    lane: Optional[str] = None
 
 
 EventType = Literal["startEvent", "endEvent", "intermediateThrowEvent", "intermediateCatchEvent"]
@@ -52,6 +62,7 @@ class BPMNEvent(BaseModel):
     id: str
     label: Optional[str] = None
     eventDefinition: Optional[EventDefinitionType] = None
+    lane: Optional[str] = None
 
 
 class ExclusiveGatewayBranch(BaseModel):
@@ -133,6 +144,7 @@ class ProcessModel(BaseModel):
     """
 
     process: List[BPMNElement]
+    lanes: Optional[List[BPMNLane]] = None
 
 
 class EditProposal(BaseModel):

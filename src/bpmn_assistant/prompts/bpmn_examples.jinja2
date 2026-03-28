@@ -371,3 +371,71 @@ Textual description: "An order process starts when a customer submits an order. 
   ]
 }
 ```
+
+---
+
+Textual description: "営業部が顧客から購入依頼を受ける。営業部が見積書を作成する。経理部が見積書を確認し、承認または却下する。承認された場合、営業部が顧客に見積書を送付する。"
+(Translation: "The sales team receives a purchase request from a customer. They create a quote. The accounting department reviews the quote and approves or rejects it. If approved, the sales team sends the quote to the customer.")
+
+```json
+{
+  "lanes": [
+    {"id": "lane1", "name": "営業部"},
+    {"id": "lane2", "name": "経理部"}
+  ],
+  "process": [
+    {
+      "type": "startEvent",
+      "id": "start",
+      "lane": "lane1"
+    },
+    {
+      "type": "receiveTask",
+      "id": "task1",
+      "label": "購入依頼受領",
+      "lane": "lane1"
+    },
+    {
+      "type": "userTask",
+      "id": "task2",
+      "label": "見積書作成",
+      "lane": "lane1"
+    },
+    {
+      "type": "userTask",
+      "id": "task3",
+      "label": "見積書確認",
+      "lane": "lane2"
+    },
+    {
+      "type": "exclusiveGateway",
+      "id": "gateway1",
+      "label": "承認?",
+      "has_join": false,
+      "lane": "lane2",
+      "branches": [
+        {
+          "condition": "承認",
+          "path": [
+            {
+              "type": "sendTask",
+              "id": "task4",
+              "label": "見積書送付",
+              "lane": "lane1"
+            }
+          ]
+        },
+        {
+          "condition": "却下",
+          "path": []
+        }
+      ]
+    },
+    {
+      "type": "endEvent",
+      "id": "end",
+      "lane": "lane1"
+    }
+  ]
+}
+```
