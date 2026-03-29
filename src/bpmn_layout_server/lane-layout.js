@@ -80,8 +80,9 @@ async function layoutWithLanes(bpmnXml) {
     }
   }
 
-  // Build map of flow element IDs to their connected sequence flows
-  const flowsBySourceTarget = {};
+  // Build separate maps for flows by source and target
+  const flowsBySource = {};
+  const flowsByTarget = {};
   const processEl = getProcessElement(layoutedDoc);
   if (processEl) {
     for (let i = 0; i < processEl.childNodes.length; i++) {
@@ -93,14 +94,28 @@ async function layoutWithLanes(bpmnXml) {
         const targetRef = child.getAttribute('targetRef');
         const flowId = child.getAttribute('id');
         if (sourceRef) {
-          if (!flowsBySourceTarget[sourceRef]) flowsBySourceTarget[sourceRef] = [];
-          flowsBySourceTarget[sourceRef].push(flowId);
+          if (!flowsBySource[sourceRef]) flowsBySource[sourceRef] = [];
+          flowsBySource[sourceRef].push(flowId);
         }
         if (targetRef) {
-          if (!flowsBySourceTarget[targetRef]) flowsBySourceTarget[targetRef] = [];
-          flowsBySourceTarget[targetRef].push(flowId);
+          if (!flowsByTarget[targetRef]) flowsByTarget[targetRef] = [];
+          flowsByTarget[targetRef].push(flowId);
         }
       }
+    }
+  }
+
+  // Helper function to linearly interpolate intermediate waypoints
+  function interpolateWaypoints(waypoints) {
+    if (waypoints.length <= 2) return; // No interpolation needed
+
+    const firstY = parseFloat(waypoints[0].getAttribute('y') || '0');
+    const lastY = parseFloat(waypoints[waypoints.length - 1].getAttribute('y') || '0');
+
+    for (let i = 1; i < waypoints.length - 1; i++) {
+      const ratio = i / (waypoints.length - 1);
+      const interpolatedY = firstY + (lastY - firstY) * ratio;
+      waypoints[i].setAttribute('y', String(interpolatedY));
     }
   }
 
@@ -155,17 +170,36 @@ async function layoutWithLanes(bpmnXml) {
       pos.boundsNode.setAttribute('y', String(newY));
       pos.y = newY;
 
-      // Update waypoints of connected BPMNEdges
-      const connectedFlows = flowsBySourceTarget[refId];
-      if (connectedFlows) {
-        for (const flowId of connectedFlows) {
+      // Update ONLY the first waypoint (start point) of flows where this node is the source
+      const sourceFlows = flowsBySource[refId];
+      if (sourceFlows) {
+        for (const flowId of sourceFlows) {
           const waypoints = edgesById[flowId];
-          if (waypoints) {
-            for (const waypoint of waypoints) {
-              const currentY = parseFloat(waypoint.getAttribute('y') || '0');
-              const newWaypointY = currentY + yShift;
-              waypoint.setAttribute('y', String(newWaypointY));
-            }
+          if (waypoints && waypoints.length > 0) {
+            // Update only the first waypoint (start point)
+            const currentY = parseFloat(waypoints[0].getAttribute('y') || '0');
+            const newWaypointY = currentY + yShift;
+            waypoints[0].setAttribute('y', String(newWaypointY));
+
+            // Interpolate intermediate waypoints
+            interpolateWaypoints(waypoints);
+          }
+        }
+      }
+
+      // Update ONLY the last waypoint (end point) of flows where this node is the target
+      const targetFlows = flowsByTarget[refId];
+      if (targetFlows) {
+        for (const flowId of targetFlows) {
+          const waypoints = edgesById[flowId];
+          if (waypoints && waypoints.length > 0) {
+            // Update only the last waypoint (end point)
+            const currentY = parseFloat(waypoints[waypoints.length - 1].getAttribute('y') || '0');
+            const newWaypointY = currentY + yShift;
+            waypoints[waypoints.length - 1].setAttribute('y', String(newWaypointY));
+
+            // Interpolate intermediate waypoints
+            interpolateWaypoints(waypoints);
           }
         }
       }
